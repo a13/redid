@@ -103,6 +103,7 @@
 ;; by overriding `navigel-open':
 
 (navigel-method navigel-ex-fs navigel-open (file _target)
+  (setq-local buffer-file-name file)
   (if (f-file-p file)
       (find-file file)
     (cl-call-next-method)))
@@ -119,12 +120,25 @@
 ;; We now specify the column values for each file by overriding
 ;; `navigel-entity-to-columns':
 
+;; defcustom, maybe rename
 (defvar navigel-ex-fs-id-format 'string)
 
 (defun navigel-ex-fs--number-file-attribute (attr)
   (if (numberp attr)
       (number-to-string attr)
     (format "%s" attr)))
+
+(defvar navigel-ex-fs-file-size-flavor nil)
+
+(defun navigel-ex-fs--size-handler (size)
+  (if (numberp size)
+      (file-size-human-readable size navigel-ex-fs-file-size-flavor)
+    (format "%s" size)))
+
+(defun navigel-ex-fs--size-handler (size)
+  (if (numberp size)
+      (file-size-human-readable size navigel-ex-fs-file-size-flavor)
+    (format "%s" size)))
 
 (defun navigel-ex-fs-default-attribute-handler (attr)
   (if (stringp attr)
@@ -140,8 +154,7 @@
 (defvar navigel-ex-fs-time-format "%F %R")
 
 (defun navigel-ex-fs-time-handler (time)
-  (format-time-string navigel-ex-fs-time-format
-                      time))
+  (format-time-string navigel-ex-fs-time-format time))
 
 ;; defcustom?
 (setq navigel-ex-fs-file-attribute-handlers-alist
@@ -149,12 +162,12 @@
     (file-attribute-link-number . navigel-ex-fs--number-file-attribute)
     (file-attribute-user-id)
     (file-attribute-group-id)
-    ;; TODO: date formatter
+
     (file-attribute-access-time . navigel-ex-fs-time-handler)
     (file-attribute-modification-time . navigel-ex-fs-time-handler)
     (file-attribute-status-change-time . navigel-ex-fs-time-handler)
 
-    (file-attribute-size . navigel-ex-fs--number-file-attribute)
+    (file-attribute-size . navigel-ex-fs--size-handler)
     (file-attribute-modes)
     (file-attribute-inode-number . navigel-ex-fs--number-file-attribute)
     (file-attribute-device-number . navigel-ex-fs--number-file-attribute)))
@@ -197,7 +210,6 @@
   (navigel-ex-fs--pp-file-attribute #'file-attribute-status-change-time file))
 
 (defun navigel-ex-fs-size (file)
-  ;; TODO: add defcustom for size unit
   (navigel-ex-fs--pp-file-attribute #'file-attribute-size file))
 
 (defun navigel-ex-fs-modes (file)
@@ -221,7 +233,7 @@
 ;; defcustoms
 (setq navigel-ex-fs-columns-alist
       (let ((time-length (length (format-time-string navigel-ex-fs-time-format))))
-        `((size navigel-ex-fs-size ("Size (B)" 10 nil :right-align t) diredfl-number)
+        `((size navigel-ex-fs-size ("Size" 6 nil :right-align t) diredfl-number)
           (name navigel-name ("Name" 30 t) diredfl-file-name)
           (user navigel-ex-fs-user-id ("UID" 10 t) default)
           (group navigel-ex-fs-group-id ("GID" 10 t) default)
@@ -246,10 +258,10 @@
                                   (column (or (and (functionp column-handler)
                                                    (funcall column-handler file))
                                               "")))
+                             ;; TODO: check if column-face is a function?
                              (propertize column 'face column-face)))
                          (navigel-ex-fs-get-active-columns))
     (setq navigel-ex-fs--file-attributes-cache nil)))
-
 
 
 
