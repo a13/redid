@@ -31,6 +31,7 @@
 ;;; Code:
 
 (require 'f)
+(require 'memoize)
 
 (require 'navigel)
 
@@ -115,26 +116,155 @@
 ;; column representing the size of each file.  We start by
 ;; implementing a function returning the size of its file argument:
 
-(defun navigel-ex-fs-size (file)
-  "Return FILE size as number of bytes."
-  (nth 7 (file-attributes file)))
-
 ;; We now specify the column values for each file by overriding
 ;; `navigel-entity-to-columns':
 
+(defvar navigel-ex-fs-id-format 'string)
+
+(defun navigel-ex-fs--number-file-attribute (attr)
+  (if (numberp attr)
+      (number-to-string attr)
+    (format "%s" attr)))
+
+(defun navigel-ex-fs-default-attribute-handler (attr)
+  (if (stringp attr)
+      attr
+    (format "%s" attr)))
+
+(defun navigel-ex-fs-type-handler (file-type)
+  (cond ((stringp file-type) file-type)
+        (file-type "DIR")
+        (t "FILE")))
+
+;; defcustom
+(defvar navigel-ex-fs-time-format "%F %R")
+
+(defun navigel-ex-fs-time-handler (time)
+  (format-time-string navigel-ex-fs-time-format
+                      time))
+
+;; defcustom?
+(setq navigel-ex-fs-file-attribute-handlers-alist
+  '((file-attribute-type . navigel-ex-fs-type-handler)
+    (file-attribute-link-number . navigel-ex-fs--number-file-attribute)
+    (file-attribute-user-id)
+    (file-attribute-group-id)
+    ;; TODO: date formatter
+    (file-attribute-access-time . navigel-ex-fs-time-handler)
+    (file-attribute-modification-time . navigel-ex-fs-time-handler)
+    (file-attribute-status-change-time . navigel-ex-fs-time-handler)
+
+    (file-attribute-size . navigel-ex-fs--number-file-attribute)
+    (file-attribute-modes)
+    (file-attribute-inode-number . navigel-ex-fs--number-file-attribute)
+    (file-attribute-device-number . navigel-ex-fs--number-file-attribute)))
+
+(defvar navigel-ex-fs--file-attributes-cache nil)
+
+(defun navigel-ex-fs--pp-file-attribute (attr-fn file)
+  (when (functionp attr-fn)
+    (let* ((attrs (or navigel-ex-fs--file-attributes-cache
+                      (file-attributes file 'string)))
+           (attr (funcall attr-fn attrs))
+           (handler (alist-get attr-fn navigel-ex-fs-file-attribute-handlers-alist)))
+      ;; TODO: cond
+      (if (functionp handler)
+          (funcall handler attr)
+        (if (stringp attr)
+            attr
+          (funcall #'navigel-ex-fs-default-attribute-handler attr))))))
+
+
+(defun navigel-ex-fs-type (file)
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-type file))
+
+(defun navigel-ex-fs-link-number (file)
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-link-number file))
+
+(defun navigel-ex-fs-user-id (file)
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-user-id file))
+
+(defun navigel-ex-fs-group-id (file)
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-group-id file))
+
+(defun navigel-ex-fs-access-time (file)
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-access-time file))
+
+(defun navigel-ex-fs-modification-time (file)
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-modification-time file))
+
+(defun navigel-ex-fs-status-change-time (file)
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-status-change-time file))
+
+(defun navigel-ex-fs-size (file)
+  ;; TODO: add defcustom for size unit
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-size file))
+
+(defun navigel-ex-fs-modes (file)
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-modes file))
+
+(defun navigel-ex-fs-inode-number (file)
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-inode-number file))
+
+(defun navigel-ex-fs-device-number (file)
+  (navigel-ex-fs--pp-file-attribute #'file-attribute-device-number file))
+
+
+
+
+(defvar navigel-ex-fs-active-columns
+  '(size name))
+
+(defun navigel-ex-fs-get-active-columns ()
+  navigel-ex-fs-active-columns)
+
+;; defcustoms
+(setq navigel-ex-fs-columns-alist
+      (let ((time-length (length (format-time-string navigel-ex-fs-time-format))))
+        `((size navigel-ex-fs-size ("Size (B)" 10 nil :right-align t) diredfl-number)
+          (name navigel-name ("Name" 30 t) diredfl-file-name)
+          (user navigel-ex-fs-user-id ("UID" 10 t) default)
+          (group navigel-ex-fs-group-id ("GID" 10 t) default)
+          (modes navigel-ex-fs-modes ("MODES" 11) default)
+          (access-time navigel-ex-fs-access-time ("TIME" ,time-length t) default)
+          (modification-time navigel-ex-fs-modification-time ("TIME" ,time-length t) default)
+          (status-change-time navigel-ex-fs-status-change-time ("TIME" ,time-length t) default)
+          (ext f-ext ("Extension" 10 t) diredfl-file-suffix))))
+
+(defun navigel-ex-fs--map-into-vector (function sequence)
+  (apply #'vector (mapcar function sequence)))
+
+
 (navigel-method navigel-ex-fs navigel-entity-to-columns (file)
-  (vector (number-to-string (navigel-ex-fs-size file))
-          (navigel-name file)))
+  ;; memoization doesn't work here
+  (prog2
+      (setq navigel-ex-fs--file-attributes-cache (file-attributes file navigel-ex-fs-id-format))
+      (navigel-ex-fs--map-into-vector (lambda (column)
+                           (let* ((spec (alist-get column navigel-ex-fs-columns-alist))
+                                  (column-handler (car spec))
+                                  (column-face (caddr spec))
+                                  (column (or (and (functionp column-handler)
+                                                   (funcall column-handler file))
+                                              "")))
+                             (propertize column 'face column-face)))
+                         (navigel-ex-fs-get-active-columns))
+    (setq navigel-ex-fs--file-attributes-cache nil)))
+
+
+
 
 ;; The code above specifies that the first column of a file line will
 ;; contain the file size and the second will contain the filename.  We
 ;; aren't exactly done yet as we also need to specify what each column
-;; should look like.  This is done by overriding
+;; shbaould look like.  This is done by overriding
 ;; `navigel-tablist-format':
 
 (navigel-method navigel-ex-fs navigel-tablist-format (_entity)
-  (vector (list "Size (B)" 10 nil :right-align t)
-          (list "Name" 0 t)))
+  (navigel-ex-fs--map-into-vector (lambda (column)
+                       (or (cadr (alist-get column navigel-ex-fs-columns-alist))
+                           (list (symbol-name column) 0 t)))
+                     (navigel-ex-fs-get-active-columns)))
+
 
 ;; This code defines the format of columns. The first column will have
 ;; "Size (B)" as title to indicate that the displayed numbers
