@@ -1,8 +1,9 @@
-;;; navigel-ex-fs.el --- Example of navigel to navigate the filesystem  -*- lexical-binding: t; -*-
+;;; redid.el --- A simple file manager  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2019, 2020  Damien Cassou
+;; Copyright (C) 2019, 2020  Damien Cassou, 2021 Dmytro Lispyvnyi
 
-;; Author: Damien Cassou <damien@cassou.me>
+;; Authors: Damien Cassou <damien@cassou.me>, Dmytro Lispyvnyi
+;; Homepage: https://github.com/a13/redid
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -42,13 +43,13 @@
 ;; `navigel-open' on the initial entity.  Navigel also requires an
 ;; application name dynamically bound in the variable `navigel-app'.
 ;; This name is meant to disambiguate method definitions and is *not*
-;; visible to the user.  In this example, we use `navigel-ex-fs'
+;; visible to the user.  In this example, we use `redid'
 ;; as name.  The code below defines the command:
 
-(defun navigel-ex-fs-list-files (&optional directory)
+(defun redid-list-files (&optional directory)
   "List files of DIRECTORY, home directory if nil."
   (interactive (list (getenv "HOME")))
-  (let ((navigel-app 'navigel-ex-fs))
+  (let ((navigel-app 'redid))
     (navigel-open (f-expand directory) nil)))
 
 ;; For this command to display the files in the home directory (i.e.,
@@ -57,7 +58,7 @@
 ;; How to get the children of an entity should be specified by
 ;; overriding the method `navigel-children':
 
-(navigel-method navigel-ex-fs navigel-children (directory callback)
+(navigel-method redid navigel-children (directory callback)
   "Call CALLBACK with the files in DIRECTORY as parameter."
   (funcall callback (f-entries directory)))
 
@@ -69,7 +70,7 @@
 ;; above.
 
 ;; At this point, you should be able to type `M-x
-;; navigel-ex-fs-list-files RET' to get a buffer showing all
+;; redid-list-files RET' to get a buffer showing all
 ;; files and folders in your home directory.  If you move the point to
 ;; a folder and press `RET', a new buffer should open listing its
 ;; files and folders.  If you type `M-x imenu RET', you can select one
@@ -82,7 +83,7 @@
 ;; ".bashrc") as in all file browsers.  We can easily change that by
 ;; overriding the `navigel-name' method:
 
-(navigel-method navigel-ex-fs navigel-name (file)
+(navigel-method redid navigel-name (file)
   (f-filename file))
 
 ;; This is much better.  With `RET', we can easily navigate from a
@@ -91,7 +92,7 @@
 ;; need to override the `navigel-parent' method whose responsibility
 ;; is to return the parent entity of the entity passed as parameter:
 
-(navigel-method navigel-ex-fs navigel-parent (file)
+(navigel-method redid navigel-parent (file)
   (f-dirname file))
 
 ;; You should now be able to press `^' to go to the parent directory
@@ -102,7 +103,7 @@
 ;; pressing `RET' on a file opens the file itself.  This can be done
 ;; by overriding `navigel-open':
 
-(navigel-method navigel-ex-fs navigel-open (file _target)
+(navigel-method redid navigel-open (file _target)
   (setq-local buffer-file-name file)
   (if (f-file-p file)
       (find-file file)
@@ -121,138 +122,138 @@
 ;; `navigel-entity-to-columns':
 
 ;; defcustom, maybe rename
-(defvar navigel-ex-fs-id-format 'string)
+(defvar redid-id-format 'string)
 
-(defun navigel-ex-fs--number-file-attribute (attr)
+(defun redid--number-file-attribute (attr)
   (if (numberp attr)
       (number-to-string attr)
     (format "%s" attr)))
 
-(defvar navigel-ex-fs-file-size-flavor nil)
+(defvar redid-file-size-flavor nil)
 
-(defun navigel-ex-fs--size-handler (size)
+(defun redid--size-handler (size)
   (if (numberp size)
-      (file-size-human-readable size navigel-ex-fs-file-size-flavor)
+      (file-size-human-readable size redid-file-size-flavor)
     (format "%s" size)))
 
-(defun navigel-ex-fs--size-handler (size)
+(defun redid--size-handler (size)
   (if (numberp size)
-      (file-size-human-readable size navigel-ex-fs-file-size-flavor)
+      (file-size-human-readable size redid-file-size-flavor)
     (format "%s" size)))
 
-(defun navigel-ex-fs-default-attribute-handler (attr)
+(defun redid-default-attribute-handler (attr)
   (if (stringp attr)
       attr
     (format "%s" attr)))
 
-(defun navigel-ex-fs-type-handler (file-type)
+(defun redid-type-handler (file-type)
   (cond ((stringp file-type) file-type)
         (file-type "DIR")
         (t "FILE")))
 
 ;; defcustom
-(defvar navigel-ex-fs-time-format "%F %R")
+(defvar redid-time-format "%F %R")
 
-(defun navigel-ex-fs-time-handler (time)
-  (format-time-string navigel-ex-fs-time-format time))
+(defun redid-time-handler (time)
+  (format-time-string redid-time-format time))
 
 ;; defcustom?
-(setq navigel-ex-fs-file-attribute-handlers-alist
-  '((file-attribute-type . navigel-ex-fs-type-handler)
-    (file-attribute-link-number . navigel-ex-fs--number-file-attribute)
+(setq redid-file-attribute-handlers-alist
+  '((file-attribute-type . redid-type-handler)
+    (file-attribute-link-number . redid--number-file-attribute)
     (file-attribute-user-id)
     (file-attribute-group-id)
 
-    (file-attribute-access-time . navigel-ex-fs-time-handler)
-    (file-attribute-modification-time . navigel-ex-fs-time-handler)
-    (file-attribute-status-change-time . navigel-ex-fs-time-handler)
+    (file-attribute-access-time . redid-time-handler)
+    (file-attribute-modification-time . redid-time-handler)
+    (file-attribute-status-change-time . redid-time-handler)
 
-    (file-attribute-size . navigel-ex-fs--size-handler)
+    (file-attribute-size . redid--size-handler)
     (file-attribute-modes)
-    (file-attribute-inode-number . navigel-ex-fs--number-file-attribute)
-    (file-attribute-device-number . navigel-ex-fs--number-file-attribute)))
+    (file-attribute-inode-number . redid--number-file-attribute)
+    (file-attribute-device-number . redid--number-file-attribute)))
 
-(defvar navigel-ex-fs--file-attributes-cache nil)
+(defvar redid--file-attributes-cache nil)
 
-(defun navigel-ex-fs--pp-file-attribute (attr-fn file)
+(defun redid--pp-file-attribute (attr-fn file)
   (when (functionp attr-fn)
-    (let* ((attrs (or navigel-ex-fs--file-attributes-cache
+    (let* ((attrs (or redid--file-attributes-cache
                       (file-attributes file 'string)))
            (attr (funcall attr-fn attrs))
-           (handler (alist-get attr-fn navigel-ex-fs-file-attribute-handlers-alist)))
+           (handler (alist-get attr-fn redid-file-attribute-handlers-alist)))
       ;; TODO: cond
       (if (functionp handler)
           (funcall handler attr)
         (if (stringp attr)
             attr
-          (funcall #'navigel-ex-fs-default-attribute-handler attr))))))
+          (funcall #'redid-default-attribute-handler attr))))))
 
 
-(defun navigel-ex-fs-type (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-type file))
+(defun redid-type (file)
+  (redid--pp-file-attribute #'file-attribute-type file))
 
-(defun navigel-ex-fs-link-number (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-link-number file))
+(defun redid-link-number (file)
+  (redid--pp-file-attribute #'file-attribute-link-number file))
 
-(defun navigel-ex-fs-user-id (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-user-id file))
+(defun redid-user-id (file)
+  (redid--pp-file-attribute #'file-attribute-user-id file))
 
-(defun navigel-ex-fs-group-id (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-group-id file))
+(defun redid-group-id (file)
+  (redid--pp-file-attribute #'file-attribute-group-id file))
 
-(defun navigel-ex-fs-access-time (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-access-time file))
+(defun redid-access-time (file)
+  (redid--pp-file-attribute #'file-attribute-access-time file))
 
-(defun navigel-ex-fs-modification-time (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-modification-time file))
+(defun redid-modification-time (file)
+  (redid--pp-file-attribute #'file-attribute-modification-time file))
 
-(defun navigel-ex-fs-status-change-time (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-status-change-time file))
+(defun redid-status-change-time (file)
+  (redid--pp-file-attribute #'file-attribute-status-change-time file))
 
-(defun navigel-ex-fs-size (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-size file))
+(defun redid-size (file)
+  (redid--pp-file-attribute #'file-attribute-size file))
 
-(defun navigel-ex-fs-modes (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-modes file))
+(defun redid-modes (file)
+  (redid--pp-file-attribute #'file-attribute-modes file))
 
-(defun navigel-ex-fs-inode-number (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-inode-number file))
+(defun redid-inode-number (file)
+  (redid--pp-file-attribute #'file-attribute-inode-number file))
 
-(defun navigel-ex-fs-device-number (file)
-  (navigel-ex-fs--pp-file-attribute #'file-attribute-device-number file))
-
-
+(defun redid-device-number (file)
+  (redid--pp-file-attribute #'file-attribute-device-number file))
 
 
-(defvar navigel-ex-fs-active-columns
+
+
+(defvar redid-active-columns
   '(size name))
 
-(defun navigel-ex-fs-get-active-columns ()
-  navigel-ex-fs-active-columns)
+(defun redid-get-active-columns ()
+  redid-active-columns)
 
 ;; defcustoms
-(setq navigel-ex-fs-columns-alist
-      (let ((time-length (length (format-time-string navigel-ex-fs-time-format))))
-        `((size navigel-ex-fs-size ("Size" 6 nil :right-align t) diredfl-number)
+(setq redid-columns-alist
+      (let ((time-length (length (format-time-string redid-time-format))))
+        `((size redid-size ("Size" 6 nil :right-align t) diredfl-number)
           (name navigel-name ("Name" 30 t) diredfl-file-name)
-          (user navigel-ex-fs-user-id ("UID" 10 t) default)
-          (group navigel-ex-fs-group-id ("GID" 10 t) default)
-          (modes navigel-ex-fs-modes ("MODES" 11) default)
-          (access-time navigel-ex-fs-access-time ("TIME" ,time-length t) default)
-          (modification-time navigel-ex-fs-modification-time ("TIME" ,time-length t) default)
-          (status-change-time navigel-ex-fs-status-change-time ("TIME" ,time-length t) default)
+          (user redid-user-id ("UID" 10 t) default)
+          (group redid-group-id ("GID" 10 t) default)
+          (modes redid-modes ("MODES" 11) default)
+          (access-time redid-access-time ("TIME" ,time-length t) default)
+          (modification-time redid-modification-time ("TIME" ,time-length t) default)
+          (status-change-time redid-status-change-time ("TIME" ,time-length t) default)
           (ext f-ext ("Extension" 10 t) diredfl-file-suffix))))
 
-(defun navigel-ex-fs--map-into-vector (function sequence)
+(defun redid--map-into-vector (function sequence)
   (apply #'vector (mapcar function sequence)))
 
 
-(navigel-method navigel-ex-fs navigel-entity-to-columns (file)
+(navigel-method redid navigel-entity-to-columns (file)
   ;; memoization doesn't work here
   (prog2
-      (setq navigel-ex-fs--file-attributes-cache (file-attributes file navigel-ex-fs-id-format))
-      (navigel-ex-fs--map-into-vector (lambda (column)
-                           (let* ((spec (alist-get column navigel-ex-fs-columns-alist))
+      (setq redid--file-attributes-cache (file-attributes file redid-id-format))
+      (redid--map-into-vector (lambda (column)
+                           (let* ((spec (alist-get column redid-columns-alist))
                                   (column-handler (car spec))
                                   (column-face (caddr spec))
                                   (column (or (and (functionp column-handler)
@@ -260,8 +261,8 @@
                                               "")))
                              ;; TODO: check if column-face is a function?
                              (propertize column 'face column-face)))
-                         (navigel-ex-fs-get-active-columns))
-    (setq navigel-ex-fs--file-attributes-cache nil)))
+                         (redid-get-active-columns))
+    (setq redid--file-attributes-cache nil)))
 
 
 
@@ -271,11 +272,11 @@
 ;; shbaould look like.  This is done by overriding
 ;; `navigel-tablist-format':
 
-(navigel-method navigel-ex-fs navigel-tablist-format (_entity)
-  (navigel-ex-fs--map-into-vector (lambda (column)
-                       (or (cadr (alist-get column navigel-ex-fs-columns-alist))
+(navigel-method redid navigel-tablist-format (_entity)
+  (redid--map-into-vector (lambda (column)
+                       (or (cadr (alist-get column redid-columns-alist))
                            (list (symbol-name column) 0 t)))
-                     (navigel-ex-fs-get-active-columns)))
+                     (redid-get-active-columns)))
 
 
 ;; This code defines the format of columns. The first column will have
@@ -296,7 +297,7 @@
 ;; As a final step, we might want to be able to delete files from the
 ;; file system.  This can be done by overriding `navigel-delete':
 
-(navigel-method navigel-ex-fs navigel-delete (file &optional callback)
+(navigel-method redid navigel-delete (file &optional callback)
   (f-delete file)
   (funcall callback))
 
@@ -311,5 +312,5 @@
 ;; buffer when it is displaying a given entity is constructed using
 ;; the generic function `navigel-single-buffer-name'.
 
-(provide 'navigel-ex-fs)
-;;; navigel-ex-fs.el ends here
+(provide 'redid)
+;;; redid.el ends here
